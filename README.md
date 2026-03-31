@@ -1,48 +1,82 @@
-# Betstake Webscrap
+# 🤖 Bolsadeaposta Bot (E-Soccer Automation)
 
-Projeto em Go para realizar raspagem web (web scraping) e automação de dados de partidas de futebol (com foco em E-Soccer tipo GT Leagues) em plataformas de apostas, utilizando a biblioteca [go-rod](https://github.com/go-rod/rod).
+Profissional Go-based automation tool designed to scout and simulate bets on **Asian Handicap** markets, specifically for **E-Soccer (GT Leagues)** on the Bolsadeaposta platform. Built with the powerful [go-rod](https://github.com/go-rod/rod) browser automation library.
 
-## 🚀 Funcionalidades Principais (O que o projeto faz)
+---
 
-1. **Inicialização e Bypass de Modais (`browser.LoadPageFlow`)**
-   - Inicia uma instância do navegador Chromium (modo Headless ou Visível).
-   - Navega até a página de eventos esportivos ao vivo.
-   - Aceita e fecha automaticamente avisos de maioridade (+18) e banners de consentimento de Cookies.
+## 🔥 Key Features
 
-2. **Autenticação Automática (`auth.LoginFlow`)** *(Opcional)*
-   - Simula a interação com o painel de login na plataforma.
-   - Pede os dados de acesso e lida com verificações de duas etapas (2FA) quando exigido.
+1.  **🛡️ Intelligent Navigation (`browser.LoadPageFlow`)**
+    *   Initializes a Chrome instance (visible/headless).
+    *   Automatically bypasses age-governance (+18) and Cookie consent modals.
+    *   Robustly navigates through the platform's multi-layered layout.
 
-3. **Busca Dinâmica de Ligas (`crawler.FindLeague` e `ExpandLeague`)**
-   - Realiza scroll automático na página (forçando o *Lazy Load* de elementos visuais) até localizar a **"GT Leagues"**.
-   - Faz busca dentro da árvore DOM principal e também dentro de `iframes`.
-   - Expande os componentes colapsados dessa liga específica.
+2.  **🕵️ Dynamic Scouter (`crawler.FindLeague` & `GetMatches`)**
+    *   Implements **Auto-Scrolling** to trigger Lazy Loading until the "GT Leagues" section is found.
+    *   Works seamlessly across nested `iframes`.
+    *   Extracts real-time match data: **Teams, Live Scores, Match Time, and 1X2 Odds**.
 
-4. **Raspagem de Partidas (`crawler.GetMatches`)**
-   - Extrai dos jogos listados: Nome dos Times, Placar e o Tempo da Partida.
-   - Evita dados duplicados analisando strings das chaves das equipes.
+3.  **📈 Market Deep-Dive (Asian Handicap)**
+    *   Clicks into individual matches to reveal detailed markets.
+    *   Scans the detail panel (with internal scrolling) for the **"1st Half Asian Handicap"** market.
+    *   Maps all available **Lines** and **Odds** in real-time.
 
-5. **Exame Profundo de Mercados de Handicap**
-   - Clica especificamente no título da partida (nomes das equipes) para carregar todos os mercados detalhados daquele jogo.
-   - Realiza *scroll* automático pelo painel interno de detalhes buscando o mercado alvo.
-   - Assim que acha o painel de **"1st Half Asian Handicap"** (ou variações em pt-br), ele abre o mercado e mapeia todas as Linhas (`Line`) e Cotações (`Odds`) em tempo real.
+4.  **💸 Bet Simulation (`betting.PrepareHandicapBet`)**
+    *   Interactive CLI for selecting a specifically targeted match and handicap line.
+    *   Automatically fills the bet slip with the desired **Handicap Line** and **Stake (Amount)**.
+    *   Stops right before the final confirmation, allowing for manual verification.
 
-## 📋 Informações que o projeto solicita / requer
+---
 
-Para operar corretamente o robô precisa que você forneça/valide:
+## 📂 Project Architecture
 
-- **Credenciais de Acesso (Login):** Caso o login esteja ativado (`main.go`), o programa pedirá no seu Terminal o preenchimento manual do seu **Usuário** e **Senha**. Se atrelado à conta, pedirá também sua **Chave de 2FA/PIN**.
-- **Sessão Local Persistente:** O projeto precisa do diretório (`./user-data`) para armazenar os *cookies e o seu cache de navegação*. Isso evita que o robô tenha que ser logado a todo instante.
-- **Configurações de Alvos (Hardcoded):** Atualmente, o bot busca especificamente por:
-  - Textos que indicam a liga-alvo *(ex. "GT Leagues")*
-  - O mercado de *(ex. "1st Half Asian Handicap")*
-  - Caso os botões e os identificadores HTML da plataforma de aposta mudem, os seletores nos arquivos `.go` devem ser atualizados.
+The project is structured following clean coding principles and modularity:
 
-## 💻 Como Executar na Máquina Local
+*   **`internal/auth`**: Orchestrates login flows and authentication challenges.
+*   **`internal/betting`**: Contains the logic for interacting with the bet slip and stake inputs.
+*   **`internal/browser`**: Configures the Rod browser instance and generic navigation helpers.
+*   **`internal/config`**: Handles project settings and persistent user data (`/user-data`).
+*   **`internal/crawler`**: Core scraping engine for discovering leagues, matches, and market lines.
+*   **`internal/models`**: Defines data structures like `Match` and `HandicapLine`.
 
-Instale as dependências e rode o script:
+---
 
+## 🛠️ Prerequisites
+
+*   [Go](https://go.dev/dl/) (version 1.20+ recommended)
+*   Google Chrome or Chromium installed on your system.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone & Install Dependencies
 ```bash
+# Clone the repository
+git clone <repo-url>
+cd bolsadeaposta-bot
+
+# Install Go modules
 go mod tidy
+```
+
+### 2. Execution
+Run the main entry point:
+```bash
 go run main.go
 ```
+
+### 3. Usage Flow
+1.  Enter the names of the two players (as displayed on the site, e.g., "Giggs", "Ronaldinho").
+2.  The bot will find the match and display the current **Scores** and **Handicap Odds**.
+3.  Type `s` to simulate a bet.
+4.  Follow the prompts to select the **Team**, **Line**, and **Stake**.
+5.  Watch the browser automatically populate the bet slip!
+
+---
+
+## ⚠️ Important Notes
+
+*   **User Data Persistence:** The `./user-data` directory stores your browser session (cookies/cache). This prevents the need for manual login on every run.
+*   **X-Origin Iframes:** The bot is specially designed to handle the platform's complex iframe structure for betting markets.
+*   **Liability:** This tool is for **educational and simulation purposes only**. Always ensure you follow the platform's terms of service and gamble responsibly.
