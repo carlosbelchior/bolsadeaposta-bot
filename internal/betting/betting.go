@@ -16,12 +16,12 @@ func PrepareHandicapBet(page *rod.Page, teamName string, handicapLine string, am
 	fmt.Printf("🎯 Iniciando simulação de aposta: %s (%s) | Valor: %s\n", teamName, handicapLine, amount)
 
 	// 1. Localiza o iframe do Sportsbook
-	iframeEl, err := page.Element(config.SelectorIframeFSSB)
+	sportsbookIframeElement, err := page.Element(config.SelectorIframeFSSB)
 	if err != nil {
 		return fmt.Errorf("iframe do sportsbook não encontrado: %w", err)
 	}
 
-	frame, err := iframeEl.Frame()
+	frame, err := sportsbookIframeElement.Frame()
 	if err != nil {
 		return fmt.Errorf("não foi possível acessar o contexto do iframe: %w", err)
 	}
@@ -84,14 +84,14 @@ func PrepareHandicapBet(page *rod.Page, teamName string, handicapLine string, am
 
 // ClearBetslip tenta remover todas as seleções atuais do boletim
 func ClearBetslip(frame *rod.Page) error {
-	btns, err := frame.Elements(config.SelectorBetslipRemoveBtn)
-	if err != nil || len(btns) == 0 {
+	removeButtons, err := frame.Elements(config.SelectorBetslipRemoveBtn)
+	if err != nil || len(removeButtons) == 0 {
 		return nil
 	}
 
-	fmt.Printf("🗑️ Limpando %d seleções anteriores do boletim...\n", len(btns))
-	for _, btn := range btns {
-		_ = btn.Click(proto.InputMouseButtonLeft, 1)
+	fmt.Printf("🗑️ Limpando %d seleções anteriores do boletim...\n", len(removeButtons))
+	for _, removeButton := range removeButtons {
+		_ = removeButton.Click(proto.InputMouseButtonLeft, 1)
 		time.Sleep(200 * time.Millisecond)
 	}
 	return nil
