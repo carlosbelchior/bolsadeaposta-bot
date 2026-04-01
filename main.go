@@ -7,6 +7,7 @@ import (
 
 	"betstake-webscrap/internal/betting"
 	"betstake-webscrap/internal/browser"
+	"betstake-webscrap/internal/config"
 	"betstake-webscrap/internal/crawler"
 )
 
@@ -29,60 +30,56 @@ func main() {
 		return
 	}
 
-	var p1, p2 string
+	var playerOneName, playerTwoName string
 	fmt.Print("Digite o nome do primeiro jogador: ")
-	fmt.Scanln(&p1)
+	fmt.Scanln(&playerOneName)
 	fmt.Print("Digite o nome do segundo jogador: ")
-	fmt.Scanln(&p2)
+	fmt.Scanln(&playerTwoName)
 
-	matches := crawler.GetMatches(league, p1, p2)
+	matches := crawler.GetMatches(league, playerOneName, playerTwoName)
 	fmt.Printf("Encontradas %d partidas:\n", len(matches))
-	for _, m := range matches {
-		fmt.Printf("- %s vs %s (Placar: %s-%s, Tempo: %s)\n", m.Team1, m.Team2, m.Score1, m.Score2, m.Time)
-		if len(m.HTHandicap1) > 0 {
+	for _, match := range matches {
+		fmt.Printf("- %s vs %s (Placar: %s-%s, Tempo: %s)\n", match.Team1, match.Team2, match.Score1, match.Score2, match.Time)
+		if len(match.HTHandicap1) > 0 {
 			fmt.Println("  [Handicap Asiático 1º Tempo - Casa]")
-			for _, h := range m.HTHandicap1 {
-				fmt.Printf("    Linha: %s | Odd: %s\n", h.Line, h.Odd)
+			for _, handicap := range match.HTHandicap1 {
+				fmt.Printf("    Linha: %s | Odd: %s\n", handicap.Line, handicap.Odd)
 			}
 		}
-		if len(m.HTHandicap2) > 0 {
+		if len(match.HTHandicap2) > 0 {
 			fmt.Println("  [Handicap Asiático 1º Tempo - Fora]")
-			for _, h := range m.HTHandicap2 {
-				fmt.Printf("    Linha: %s | Odd: %s\n", h.Line, h.Odd)
+			for _, handicap := range match.HTHandicap2 {
+				fmt.Printf("    Linha: %s | Odd: %s\n", handicap.Line, handicap.Odd)
 			}
 		}
 	}
 
 	if len(matches) > 0 {
 		fmt.Printf("\n💸 Deseja simular uma aposta para alguma partida encontrada? (s/n): ")
-		var resp string
-		fmt.Scanln(&resp)
+		var userResponse string
+		fmt.Scanln(&userResponse)
 
-		if strings.ToLower(resp) == "s" {
-			var matchIdx int
+		if strings.ToLower(userResponse) == "s" {
+			var selectedMatchIndex int
 			fmt.Printf("Selecione o número da partida (1-%d): ", len(matches))
-			fmt.Scanln(&matchIdx)
+			fmt.Scanln(&selectedMatchIndex)
 
-			if matchIdx >= 1 && matchIdx <= len(matches) {
-				m := matches[matchIdx-1]
-				fmt.Printf("Escolha o time (1 for %s, 2 for %s): ", m.Team1, m.Team2)
-				var teamSelect int
-				fmt.Scanln(&teamSelect)
+			if selectedMatchIndex >= 1 && selectedMatchIndex <= len(matches) {
+				match := matches[selectedMatchIndex-1]
+				fmt.Printf("Escolha o time (1 for %s, 2 for %s): ", match.Team1, match.Team2)
+				var selectedTeamOption int
+				fmt.Scanln(&selectedTeamOption)
 
-				teamName := m.Team1
-				if teamSelect == 2 {
-					teamName = m.Team2
+				teamName := match.Team1
+				if selectedTeamOption == 2 {
+					teamName = match.Team2
 				}
 
 				fmt.Printf("Digite a linha de handicap (ex: -0.5, 0.0, +0.25): ")
-				var hl string
-				fmt.Scanln(&hl)
+				var handicapLine string
+				fmt.Scanln(&handicapLine)
 
-				fmt.Printf("Digite o valor da aposta (ex: 1.00): ")
-				var amt string
-				fmt.Scanln(&amt)
-
-				if err := betting.PrepareHandicapBet(page, teamName, hl, amt); err != nil {
+				if err := betting.PrepareHandicapBet(page, teamName, handicapLine, config.DefaultStake); err != nil {
 					fmt.Printf("❌ Falha na simulação: %v\n", err)
 				}
 			}
