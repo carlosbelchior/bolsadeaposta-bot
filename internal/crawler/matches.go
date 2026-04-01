@@ -114,9 +114,9 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 
 	var events rod.Elements
 	for i := 0; i < 15; i++ {
-		evs, err := container.Elements(`.eventlist_eu_fe_EventItemDesktop_wrapper, [class*="EventItemDesktop_wrapper"], [class*="EventItem"]`)
-		if err == nil && len(evs) > 0 {
-			events = evs
+		eventElements, err := container.Elements(`.eventlist_eu_fe_EventItemDesktop_wrapper, [class*="EventItemDesktop_wrapper"], [class*="EventItem"]`)
+		if err == nil && len(eventElements) > 0 {
+			events = eventElements
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -124,47 +124,47 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 
 	seen := make(map[string]bool)
 
-	for _, e := range events {
-		teams, _ := e.Elements(`[class*="teamNameText"], [class*="participantName"]`)
+	for _, event := range events {
+		teams, _ := event.Elements(`[class*="teamNameText"], [class*="participantName"]`)
 		if len(teams) < 2 {
 			continue
 		}
 
-		t1, _ := teams[0].Text()
-		t2, _ := teams[1].Text()
-		t1 = strings.TrimSpace(t1)
-		t2 = strings.TrimSpace(t2)
+		teamOneName, _ := teams[0].Text()
+		teamTwoName, _ := teams[1].Text()
+		teamOneName = strings.TrimSpace(teamOneName)
+		teamTwoName = strings.TrimSpace(teamTwoName)
 
-		matchP1 := strings.Contains(strings.ToLower(t1), strings.ToLower(player1))
-		matchP2 := strings.Contains(strings.ToLower(t2), strings.ToLower(player2))
+		matchP1 := strings.Contains(strings.ToLower(teamOneName), strings.ToLower(player1))
+		matchP2 := strings.Contains(strings.ToLower(teamTwoName), strings.ToLower(player2))
 
 		if !matchP1 || !matchP2 {
-			matchP1 = strings.Contains(strings.ToLower(t1), strings.ToLower(player2))
-			matchP2 = strings.Contains(strings.ToLower(t2), strings.ToLower(player1))
+			matchP1 = strings.Contains(strings.ToLower(teamOneName), strings.ToLower(player2))
+			matchP2 = strings.Contains(strings.ToLower(teamTwoName), strings.ToLower(player1))
 		}
 
 		if !matchP1 || !matchP2 {
 			continue
 		}
 
-		key := t1 + "|" + t2
+		key := teamOneName + "|" + teamTwoName
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 
-		scores, _ := e.Elements(`[class*="mainScore"]`)
+		scores, _ := event.Elements(`[class*="mainScore"]`)
 		timeText := ""
-		timeEl, err := e.Element(`[class*="LiveEventCounter_wrapper"], [class*="Time"]`)
+		timeEl, err := event.Element(`[class*="LiveEventCounter_wrapper"], [class*="Time"]`)
 		if err == nil {
 			timeText, _ = timeEl.Text()
 		}
 
-		oddsEls, _ := e.Elements(`[class*="Selection_odds"], [class*="oddsText"]`)
+		oddsEls, _ := event.Elements(`[class*="Selection_odds"], [class*="oddsText"]`)
 
 		match := models.Match{
-			Team1: t1,
-			Team2: t2,
+			Team1: teamOneName,
+			Team2: teamTwoName,
 		}
 
 		if len(scores) >= 2 {
@@ -181,7 +181,7 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 		timeText = strings.ReplaceAll(timeText, "\n", " ")
 		match.Time = strings.TrimSpace(timeText)
 
-		fmt.Printf("🔍 Entrando na partida: %s vs %s\n", t1, t2)
+		fmt.Printf("🔍 Entrando na partida: %s vs %s\n", teamOneName, teamTwoName)
 
 		clickTarget, err := teams[0].ElementX(`ancestor::div[contains(@class, "participant") or contains(@class, "Team")][1]`)
 		if err != nil {
@@ -192,12 +192,12 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 		_ = clickTarget.Click(proto.InputMouseButtonLeft, 1)
 
 		// Aguarda o container de mercados carregar
-		_, _ = e.Page().Timeout(5 * time.Second).Element(".eventdetails_eu_fe_ViewStyles_scrollContainer, .market_fe_MarketList_wrapper, .MarketList_wrapper")
+		_, _ = event.Page().Timeout(5 * time.Second).Element(".eventdetails_eu_fe_ViewStyles_scrollContainer, .market_fe_MarketList_wrapper, .MarketList_wrapper")
 
-		match.HTHandicap1, match.HTHandicap2, _ = fetchHandicap(e.Page())
+		match.HTHandicap1, match.HTHandicap2, _ = fetchHandicap(event.Page())
 
 		// Volta
-		backBtn, err := e.Page().ElementX(config.SelectorBackBtn)
+		backBtn, err := event.Page().ElementX(config.SelectorBackBtn)
 		if err == nil {
 			_ = backBtn.Click(proto.InputMouseButtonLeft, 1)
 			time.Sleep(config.DelayAction)
@@ -210,7 +210,7 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 }
 
 func fetchHandicap(page *rod.Page) ([]models.HandicapLine, []models.HandicapLine, bool) {
-	var h1, h2 []models.HandicapLine
+	var handicapLinesOne, handicapLinesTwo []models.HandicapLine
 	found := false
 
 	// Busca pelo mercado de Handicap
@@ -252,26 +252,26 @@ func fetchHandicap(page *rod.Page) ([]models.HandicapLine, []models.HandicapLine
 				line1, _ := buttons[i].Element(config.SelectorHandicapPoints)
 				odd1, _ := buttons[i].Element(config.SelectorHandicapOdds)
 				if line1 != nil && odd1 != nil {
-					l1, _ := line1.Text()
-					o1, _ := odd1.Text()
-					o1 = strings.ReplaceAll(o1, "▲", "")
-					o1 = strings.ReplaceAll(o1, "▼", "")
-					h1 = append(h1, models.HandicapLine{Line: strings.TrimSpace(l1), Odd: strings.TrimSpace(o1)})
+					lineTextOne, _ := line1.Text()
+					oddTextOne, _ := odd1.Text()
+					oddTextOne = strings.ReplaceAll(oddTextOne, "▲", "")
+					oddTextOne = strings.ReplaceAll(oddTextOne, "▼", "")
+					handicapLinesOne = append(handicapLinesOne, models.HandicapLine{Line: strings.TrimSpace(lineTextOne), Odd: strings.TrimSpace(oddTextOne)})
 				}
 
 				// Time 2
 				line2, _ := buttons[i+1].Element(config.SelectorHandicapPoints)
 				odd2, _ := buttons[i+1].Element(config.SelectorHandicapOdds)
 				if line2 != nil && odd2 != nil {
-					l2, _ := line2.Text()
-					o2, _ := odd2.Text()
-					o2 = strings.ReplaceAll(o2, "▲", "")
-					o2 = strings.ReplaceAll(o2, "▼", "")
-					h2 = append(h2, models.HandicapLine{Line: strings.TrimSpace(l2), Odd: strings.TrimSpace(o2)})
+					lineTextTwo, _ := line2.Text()
+					oddTextTwo, _ := odd2.Text()
+					oddTextTwo = strings.ReplaceAll(oddTextTwo, "▲", "")
+					oddTextTwo = strings.ReplaceAll(oddTextTwo, "▼", "")
+					handicapLinesTwo = append(handicapLinesTwo, models.HandicapLine{Line: strings.TrimSpace(lineTextTwo), Odd: strings.TrimSpace(oddTextTwo)})
 				}
 			}
 		}
 	}
 
-	return h1, h2, found
+	return handicapLinesOne, handicapLinesTwo, found
 }

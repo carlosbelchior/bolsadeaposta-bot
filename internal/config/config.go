@@ -33,4 +33,7 @@ const (
 	TimeoutSearch   = 30 * time.Second
 	DelayAction     = 1 * time.Second
 	DelayNavigation = 3 * time.Second
+
+	// Default Stake
+	DefaultStake = "5"
 )
