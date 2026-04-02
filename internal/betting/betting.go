@@ -1,7 +1,7 @@
 package betting
 
 import (
-	"betstake-webscrap/internal/config"
+	"bolsadeaposta-bot/internal/config"
 	"fmt"
 	"strings"
 	"time"

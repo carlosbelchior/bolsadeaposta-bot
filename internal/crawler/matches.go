@@ -1,8 +1,8 @@
 package crawler
 
 import (
-	"betstake-webscrap/internal/config"
-	"betstake-webscrap/internal/models"
+	"bolsadeaposta-bot/internal/config"
+	"bolsadeaposta-bot/internal/models"
 	"fmt"
 	"strings"
 	"time"

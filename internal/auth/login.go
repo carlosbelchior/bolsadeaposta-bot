@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"betstake-webscrap/internal/config"
+	"bolsadeaposta-bot/internal/config"
 	"fmt"
 	"strings"
 	"syscall"
