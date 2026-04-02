@@ -1,8 +1,8 @@
 package browser
 
 import (
-	"betstake-webscrap/internal/auth"
-	"betstake-webscrap/internal/config"
+	"bolsadeaposta-bot/internal/auth"
+	"bolsadeaposta-bot/internal/config"
 	"fmt"
 	"strings"
 	"time"
