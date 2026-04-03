@@ -2,6 +2,7 @@ package queue
 
 import (
 	"bolsadeaposta-bot/internal/betting"
+	"bolsadeaposta-bot/internal/browser"
 	"bolsadeaposta-bot/internal/config"
 	"bolsadeaposta-bot/internal/crawler"
 	"bolsadeaposta-bot/internal/models"
@@ -75,6 +76,9 @@ func (w *Worker) processTipInDedicatedPage(tip *models.Tip) {
 			if tip.Status != models.StatusPending {
 				return
 			}
+
+			// Verifica se há popups de "Realidade" bloqueando a tela
+			browser.CheckAndDismissPopups(page)
 
 			// Optional: We can check live score on the dedicated page to validate
 			liveScore, err := crawler.FetchLiveScore(page)
