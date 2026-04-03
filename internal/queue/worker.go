@@ -6,6 +6,7 @@ import (
 	"bolsadeaposta-bot/internal/crawler"
 	"bolsadeaposta-bot/internal/models"
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -88,7 +89,7 @@ func (w *Worker) processTipInDedicatedPage(tip *models.Tip) {
 			// Attempt Goal Bet validation directly
 			log.Printf("🔍 [Aba #%s] Checando odd atual...", tip.Team1)
 
-			err = betting.PrepareGoalBet(page, tip, config.DefaultStake)
+			err = betting.PrepareGoalBet(page, tip, fmt.Sprintf("%d", config.StakeAmount))
 			if err != nil {
 				log.Printf("🔄 [Aba #%s] Odd insuficiente ou mercado não disponível. Motivo: %v | Tentando novamente no próximo tick.", tip.Team1, err)
 			} else {
