@@ -60,10 +60,13 @@ go mod tidy
 
 ### 2. Environment Variables (`.env`)
 Copy the `.env.example` file and create a `.env`:
-```env
-TELEGRAM_API_ID=your_api_id_from_my_telegram_org
-TELEGRAM_API_HASH=your_api_hash_from_my_telegram_org
+# Required: Telegram MTProto Credentials
+TELEGRAM_API_ID=your_api_id_from_my_telegram_org 
+TELEGRAM_API_HASH=your_api_hash_from_my_telegram_org 
 TELEGRAM_TARGET_USERNAME=@usernameOfTipsterBot
+
+# Required: Bet Configuration (Must be an INTEGER)
+BET_AMOUNT=5
 
 # Optional: BolsadeAposta credentials for auto-login without terminal prompts
 BOLSA_USERNAME=your_username
