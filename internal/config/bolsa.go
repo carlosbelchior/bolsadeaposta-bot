@@ -1,7 +1,9 @@
 package config
 
 import (
+	"log"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -10,6 +12,7 @@ var (
 	TargetIframeDomain = "fssb.io"
 	BolsaUsername      = ""
 	BolsaPassword      = ""
+	StakeAmount        int
 )
 
 func loadBolsaConfig() {
@@ -21,6 +24,16 @@ func loadBolsaConfig() {
 	}
 	BolsaUsername = os.Getenv("BOLSA_USERNAME")
 	BolsaPassword = os.Getenv("BOLSA_PASSWORD")
+
+	val := os.Getenv("BET_AMOUNT")
+	if val == "" {
+		log.Fatalf("Erro: BET_AMOUNT é obrigatório no arquivo .env")
+	}
+	amt, err := strconv.Atoi(val)
+	if err != nil {
+		log.Fatalf("Erro: BET_AMOUNT no .env deve ser um valor inteiro, recebido: %s", val)
+	}
+	StakeAmount = amt
 }
 
 const (
@@ -55,7 +68,4 @@ const (
 	TimeoutSearch   = 30 * time.Second
 	DelayAction     = 1 * time.Second
 	DelayNavigation = 3 * time.Second
-
-	// Default Stake
-	DefaultStake = "5"
 )
