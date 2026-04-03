@@ -3,6 +3,7 @@ package betting
 import (
 	"bolsadeaposta-bot/internal/config"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 )
 
 // PrepareHandicapBet simula a adição de uma aposta ao boletim e preenchimento do valor.
-// Não clica no botão final de confirmação de acordo com a solicitação do usuário.
+// Clica no botão final de confirmação.
 func PrepareHandicapBet(page *rod.Page, teamName string, handicapLine string, amount string) error {
-	fmt.Printf("🎯 Iniciando simulação de aposta: %s (%s) | Valor: %s\n", teamName, handicapLine, amount)
+	log.Printf("🎯 Iniciando simulação de aposta: %s (%s) | Valor: %s", teamName, handicapLine, amount)
 
 	// 1. Localiza o iframe do Sportsbook
 	sportsbookIframeElement, err := page.Element(config.SelectorIframeFSSB)
@@ -49,34 +50,37 @@ func PrepareHandicapBet(page *rod.Page, teamName string, handicapLine string, am
 		return fmt.Errorf("odd para %s com linha %s não encontrada", teamName, handicapLine)
 	}
 
-	fmt.Printf("✅ Odd encontrada. Adicionando ao boletim...\n")
+	log.Println("✅ Odd encontrada. Adicionando ao boletim...")
 	if err := targetOdd.ScrollIntoView(); err != nil {
-		fmt.Printf("⚠️ Erro ao dar scroll na odd (prosseguindo): %v\n", err)
+		log.Printf("⚠️ Erro ao dar scroll na odd (prosseguindo): %v", err)
 	}
 	if err := targetOdd.Click(proto.InputMouseButtonLeft, 1); err != nil {
 		return fmt.Errorf("erro ao clicar na odd: %w", err)
 	}
 
 	// 4. Aguarda e interage com o betslip
-	fmt.Println("⏳ Aguardando boletim de apostas...")
+	log.Println("⏳ Aguardando boletim de apostas...")
 	stakeInput, err := frame.Timeout(10 * time.Second).Element(config.SelectorBetslipStakeInput)
 	if err != nil {
 		return fmt.Errorf("campo de valor (stake) não encontrado no boletim: %w", err)
 	}
 
-	fmt.Printf("✍️ Preenchendo valor: %s\n", amount)
+	log.Printf("✍️ Preenchendo valor: %s", amount)
 	if err := stakeInput.Input(amount); err != nil {
 		return fmt.Errorf("erro ao preencher valor da aposta: %w", err)
 	}
 
-	// 5. Verifica presença do botão de confirmação
+	// 5. Verifica presença do botão de confirmação e clica
 	placeBtn, err := frame.Element(config.SelectorBetslipPlaceBetBtn)
 	if err == nil {
 		btnText, _ := placeBtn.Text()
-		fmt.Printf("🚀 Aposta preparada! Botão de confirmação visível: [%s]\n", strings.TrimSpace(btnText))
-		fmt.Println("ℹ️ Simulação concluída. O botão final NÃO foi clicado.")
+		log.Printf("🚀 Aposta preparada! Clicando no botão: [%s]", strings.TrimSpace(btnText))
+		if err := placeBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
+			return fmt.Errorf("erro ao confirmar aposta no boletim: %w", err)
+		}
+		log.Println("✅ Aposta confirmada com sucesso!")
 	} else {
-		fmt.Println("⚠️ Botão de confirmação não identificado, mas a seleção foi adicionada.")
+		return fmt.Errorf("botão de confirmação não identificado no boletim")
 	}
 
 	return nil
@@ -89,7 +93,7 @@ func ClearBetslip(frame *rod.Page) error {
 		return nil
 	}
 
-	fmt.Printf("🗑️ Limpando %d seleções anteriores do boletim...\n", len(removeButtons))
+	log.Printf("🗑️ Limpando %d seleções anteriores do boletim...", len(removeButtons))
 	for _, removeButton := range removeButtons {
 		_ = removeButton.Click(proto.InputMouseButtonLeft, 1)
 		time.Sleep(200 * time.Millisecond)

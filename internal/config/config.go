@@ -9,4 +9,5 @@ func Load() {
 	_ = godotenv.Load() // Ignore error as .env may not exist in production
 	
 	loadTelegramConfig()
+	loadBolsaConfig()
 }

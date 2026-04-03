@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -17,9 +16,9 @@ import (
 func main() {
 	config.Load()
 
-	browserInstance, _, err := browser.LoadPageFlow()
+	browserInstance, _, err := browser.StartBrowserAndAccessSportsbook()
 	if err != nil {
-		fmt.Printf("❌ Erro fatal ao carregar o navegador: %v\n", err)
+		log.Printf("❌ Erro fatal ao carregar o navegador: %v", err)
 		os.Exit(1)
 	}
 	defer browserInstance.MustClose()

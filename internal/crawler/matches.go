@@ -4,6 +4,7 @@ import (
 	"bolsadeaposta-bot/internal/config"
 	"bolsadeaposta-bot/internal/models"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func FindLeague(page *rod.Page) (*rod.Element, error) {
-	fmt.Println("⏳ Buscando pela liga 'GT Leagues'...")
+	log.Printf("⏳ Buscando pela liga '%s'...", config.TargetLeagueName)
 	start := time.Now()
 
 	for time.Since(start) < config.TimeoutSearch {
@@ -21,8 +22,8 @@ func FindLeague(page *rod.Page) (*rod.Element, error) {
 		if err == nil {
 			for _, league := range targetLeagues {
 				text, _ := league.Text()
-				if strings.Contains(strings.ToLower(text), "gt leagues") {
-					fmt.Println("✅ Liga 'GT Leagues' encontrada na página principal.")
+				if strings.Contains(strings.ToLower(text), strings.ToLower(config.TargetLeagueName)) {
+					log.Printf("✅ Liga '%s' encontrada na página principal.", config.TargetLeagueName)
 					_ = league.ScrollIntoView()
 					return league, nil
 				}
@@ -33,14 +34,14 @@ func FindLeague(page *rod.Page) (*rod.Element, error) {
 		iframes, _ := page.Elements("iframe")
 		for _, iframe := range iframes {
 			src, _ := iframe.Attribute("src")
-			if src != nil && strings.Contains(*src, "fssb.io") {
+			if src != nil && strings.Contains(*src, config.TargetIframeDomain) {
 				f, err := iframe.Frame()
 				if err == nil {
 					targetLeaguesInFrame, _ := f.ElementsX(config.XPathLeagueGT)
 					for _, league := range targetLeaguesInFrame {
 						text, _ := league.Text()
-						if strings.Contains(strings.ToLower(text), "gt leagues") {
-							fmt.Println("✅ Liga 'GT Leagues' encontrada dentro de iframe.")
+						if strings.Contains(strings.ToLower(text), strings.ToLower(config.TargetLeagueName)) {
+							log.Printf("✅ Liga '%s' encontrada dentro de iframe.", config.TargetLeagueName)
 							_ = league.ScrollIntoView()
 							return league, nil
 						}
@@ -64,19 +65,19 @@ func FindLeague(page *rod.Page) (*rod.Element, error) {
 			_ = allLeagues[len(allLeagues)-1].ScrollIntoView()
 		}
 
-		fmt.Printf("⏳ Procurando 'GT Leagues'... (%v decorridos)\n", time.Since(start).Round(time.Second))
+		log.Printf("⏳ Procurando '%s'... (%v decorridos)", config.TargetLeagueName, time.Since(start).Round(time.Second))
 		time.Sleep(2 * time.Second)
 	}
 
-	return nil, fmt.Errorf("liga 'GT Leagues' não encontrada após %v", config.TimeoutSearch)
+	return nil, fmt.Errorf("liga '%s' não encontrada após %v", config.TargetLeagueName, config.TimeoutSearch)
 }
 
 func ExpandLeague(league *rod.Element) error {
-	fmt.Println("⏳ Tentando expandir a liga...")
+	log.Println("⏳ Tentando expandir a liga...")
 	xpath := `ancestor::div[contains(@class,"header") or contains(@class,"Header")]//button | ancestor::div[contains(@class,"header") or contains(@class,"Header")]//i[contains(@class, "arrow") or contains(@class, "Arrow")] | .`
 	btn, err := league.ElementX(xpath)
 	if err != nil {
-		fmt.Println("⚠️ Botão da liga não encontrado explicitamente, tentando clicar no elemento da liga.")
+		log.Println("⚠️ Botão da liga não encontrado explicitamente, tentando clicar no elemento da liga.")
 		btn = league
 	}
 
@@ -87,7 +88,7 @@ func ExpandLeague(league *rod.Element) error {
 		return fmt.Errorf("não foi possível clicar na liga: %w", err)
 	}
 
-	fmt.Println("✅ Clique na liga realizado.")
+	log.Println("✅ Clique na liga realizado.")
 	time.Sleep(config.DelayNavigation)
 
 	// Dá um scroll para baixo para exibir os jogos
@@ -99,7 +100,7 @@ func ExpandLeague(league *rod.Element) error {
 				window.scrollBy(0, 400);
 			}
 		}`)
-	fmt.Println("📜 Rolando para exibir partidas...")
+	log.Println("📜 Rolando para exibir partidas...")
 	return nil
 }
 
@@ -108,7 +109,7 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 
 	container, err := league.ElementX(`ancestor::div[contains(@class,"header") or contains(@class,"Header")]/parent::div`)
 	if err != nil {
-		fmt.Println("⚠️ Não foi possível localizar o container da liga:", err)
+		log.Println("⚠️ Não foi possível localizar o container da liga:", err)
 		return matches
 	}
 
@@ -181,7 +182,7 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 		timeText = strings.ReplaceAll(timeText, "\n", " ")
 		match.Time = strings.TrimSpace(timeText)
 
-		fmt.Printf("🔍 Entrando na partida: %s vs %s\n", teamOneName, teamTwoName)
+		log.Printf("🔍 Entrando na partida: %s vs %s", teamOneName, teamTwoName)
 
 		clickTarget, err := teams[0].ElementX(`ancestor::div[contains(@class, "participant") or contains(@class, "Team")][1]`)
 		if err != nil {
@@ -239,7 +240,7 @@ func fetchHandicap(page *rod.Page) ([]models.HandicapLine, []models.HandicapLine
 	}
 
 	if marketContainer != nil {
-		fmt.Println("✅ Mercado de Handicap encontrado.")
+		log.Println("✅ Mercado de Handicap encontrado.")
 		buttons, err := marketContainer.Elements(config.SelectorHandicapBtns)
 		if err == nil && len(buttons) >= 2 {
 			found = true
