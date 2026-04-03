@@ -1,0 +1,37 @@
+# Arquivos compilados / Binários
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+tmp_bot
+
+# Compilados de testes
+*.test
+
+# Profile coverage do Go
+*.out
+
+# Dependências (se usar vendoring)
+vendor/
+
+# Workspaces do Go
+go.work
+go.work.sum
+
+# Arquivos de Ambiente (MUITO IMPORTANTE NÃO COMITAR O .ENV)
+.env
+.env.local
+
+# Banco de dados e Cache locais (Dados do bot)
+session.json
+user-data/
+
+# IDE e Editores de texto
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# MacOS
+.DS_Store

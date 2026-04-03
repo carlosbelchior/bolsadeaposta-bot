@@ -3,6 +3,7 @@ package crawler
 import (
 	"bolsadeaposta-bot/internal/config"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -67,21 +68,21 @@ func NavigateToMatch(browser *rod.Browser, player1, player2 string) (*rod.Page, 
 			continue
 		}
 
-		t1, _ := teams[0].Text()
-		t2, _ := teams[1].Text()
+		extractedTeam1, _ := teams[0].Text()
+		extractedTeam2, _ := teams[1].Text()
 		
-		matchP1 := strings.Contains(strings.ToLower(t1), strings.ToLower(player1))
-		matchP2 := strings.Contains(strings.ToLower(t2), strings.ToLower(player2))
+		matchP1 := strings.Contains(strings.ToLower(extractedTeam1), strings.ToLower(player1))
+		matchP2 := strings.Contains(strings.ToLower(extractedTeam2), strings.ToLower(player2))
 
 		if !matchP1 || !matchP2 {
-			matchP1 = strings.Contains(strings.ToLower(t1), strings.ToLower(player2))
-			matchP2 = strings.Contains(strings.ToLower(t2), strings.ToLower(player1))
+			matchP1 = strings.Contains(strings.ToLower(extractedTeam1), strings.ToLower(player2))
+			matchP2 = strings.Contains(strings.ToLower(extractedTeam2), strings.ToLower(player1))
 		}
 
 		if matchP1 && matchP2 {
 			targetMatch = event
-			team1Name = t1
-			team2Name = t2
+			team1Name = extractedTeam1
+			team2Name = extractedTeam2
 			break
 		}
 	}
@@ -91,7 +92,7 @@ func NavigateToMatch(browser *rod.Browser, player1, player2 string) (*rod.Page, 
 		return nil, fmt.Errorf("partida %s vs %s não encontrada ativamente", player1, player2)
 	}
 
-	fmt.Printf("🎯 Iniciando acompanhamento Multi-Aba: %s vs %s\n", team1Name, team2Name)
+	log.Printf("🎯 Iniciando acompanhamento Multi-Aba: %s vs %s", team1Name, team2Name)
 
 	teams, _ := targetMatch.Elements(`[class*="teamNameText"], [class*="participantName"]`)
 	clickTarget, err := teams[0].ElementX(`ancestor::div[contains(@class, "participant") or contains(@class, "Team")][1]`)

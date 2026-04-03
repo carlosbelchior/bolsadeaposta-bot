@@ -64,6 +64,14 @@ Copy the `.env.example` file and create a `.env`:
 TELEGRAM_API_ID=your_api_id_from_my_telegram_org
 TELEGRAM_API_HASH=your_api_hash_from_my_telegram_org
 TELEGRAM_TARGET_USERNAME=@usernameOfTipsterBot
+
+# Optional: BolsadeAposta credentials for auto-login without terminal prompts
+BOLSA_USERNAME=your_username
+BOLSA_PASSWORD=your_password
+
+# Optional: Scraper configs (if the live site changes leagues/iframes)
+TARGET_LEAGUE_NAME=gt leagues
+TARGET_IFRAME_DOMAIN=fssb.io
 ```
 
 ### 3. Execution & Login
@@ -71,9 +79,9 @@ Run the main entry point:
 ```bash
 go run main.go
 ```
-*   **First Run**: Look at your terminal! The application will ask for your Phone Number (e.g., `+5511999999999`) and then prompt you for the standard 5-digit login code sent by the official Telegram App to establish the `session.json`.
-*   **Subsequent Runs**: It will skip authentication smoothly and wait silently for targets.
-
+*   **Telegram Authentication (First Run)**: Look at your terminal! The application will ask for your Phone Number (e.g., `+5511999999999`) and prompt you for the standard 5-digit login code sent by the official Telegram App to establish the `session.json`. Next time, it will log in silently.
+*   **BolsadeAposta Login**: If you provided `BOLSA_USERNAME` and `BOLSA_PASSWORD` in your `.env`, the bot will automatically fill them in. Otherwise, it will ask for them via the terminal.
+*   **Action**: Once authenticated, it will launch the browser seamlessly and wait silently for targets, logging everything strictly equipped with Go's standard logging.
 ---
 
 ## ⚠️ Important Notes
