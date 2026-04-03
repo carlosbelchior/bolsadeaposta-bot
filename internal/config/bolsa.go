@@ -1,6 +1,27 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+)
+
+var (
+	TargetLeagueName   = "gt leagues"
+	TargetIframeDomain = "fssb.io"
+	BolsaUsername      = ""
+	BolsaPassword      = ""
+)
+
+func loadBolsaConfig() {
+	if val := os.Getenv("TARGET_LEAGUE_NAME"); val != "" {
+		TargetLeagueName = val
+	}
+	if val := os.Getenv("TARGET_IFRAME_DOMAIN"); val != "" {
+		TargetIframeDomain = val
+	}
+	BolsaUsername = os.Getenv("BOLSA_USERNAME")
+	BolsaPassword = os.Getenv("BOLSA_PASSWORD")
+}
 
 const (
 	BaseURL = "https://bolsadeaposta.bet.br/fbook/br-pt/spbk?selectedDefaultTab=Live&selectedLiveSport=1"
@@ -27,6 +48,7 @@ const (
 	// XPaths
 	XPathLeagueGT        = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'gt leagues')]`
 	XPathHandicapMarket  = `//*[contains(@class, "MarketHeader_marketName") or contains(@class, "eventpage_fe_Markets_marketName") or contains(@class, "MarketName") or contains(@class, "header")][contains(text(), "Asian") or contains(text(), "Asiático")]/ancestor::div[contains(@class, "MarketGroup_wrapper") or contains(@class, "MarketGroup") or contains(@class, "marketsList_marketGroup")]`
+	XPathGoalMarket      = `//*[contains(@class, "MarketHeader_marketName") or contains(@class, "eventpage_fe_Markets_marketName") or contains(@class, "MarketName") or contains(@class, "header")][contains(text(), "Aposta Ao Vivo Mais/Menos") or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "mais/menos")]/ancestor::div[contains(@class, "MarketGroup_wrapper") or contains(@class, "MarketGroup") or contains(@class, "marketsList_marketGroup")]`
 	
 	// Timeouts and Delays
 	TimeoutModal    = 10 * time.Second

@@ -3,6 +3,7 @@ package auth
 import (
 	"bolsadeaposta-bot/internal/config"
 	"fmt"
+	"log"
 	"strings"
 	"syscall"
 
@@ -13,42 +14,48 @@ import (
 )
 
 func LoginFlow(page *rod.Page) error {
-	fmt.Println("⏳ Verificando necessidade de login...")
+	log.Println("⏳ Verificando necessidade de login...")
 
 	// 1. Verifica se já está logado
-	el, err := page.Timeout(config.DelayNavigation).Element(config.SelectorUserActions)
+	userActionEl, err := page.Timeout(config.DelayNavigation).Element(config.SelectorUserActions)
 	if err == nil {
-		username, _ := el.Text()
-		fmt.Printf("✅ Já logado como: %s\n", strings.TrimSpace(username))
+		username, _ := userActionEl.Text()
+		log.Printf("✅ Já logado como: %s", strings.TrimSpace(username))
 		return nil
 	}
 
 	// 2. Verifica se está na tela de login
 	_, err = page.Timeout(config.DelayNavigation).Element(`input[type="password"]`)
 	if err == nil {
-		fmt.Println("🔑 Tela de login detectada.")
+		log.Println("🔑 Tela de login detectada.")
 		return handleLoginData(page)
 	}
 
 	// 3. Fallback
-	fmt.Println("ℹ️ Não foi possível identificar login. Assumindo que já está logado.")
+	log.Println("ℹ️ Não foi possível identificar login. Assumindo que já está logado.")
 	return nil
 }
 
 func handleLoginData(page *rod.Page) error {
-	fmt.Println("🔐 Iniciando preenchimento de login...")
+	log.Println("🔐 Iniciando preenchimento de login...")
 
-	var user string
-	fmt.Print("Digite seu usuário: ")
-	fmt.Scanln(&user)
+	user := config.BolsaUsername
+	pass := config.BolsaPassword
 
-	fmt.Print("Digite sua senha: ")
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return fmt.Errorf("erro ao ler senha: %w", err)
+	if user == "" || pass == "" {
+		fmt.Print("Digite seu usuário: ")
+		fmt.Scanln(&user)
+
+		fmt.Print("Digite sua senha: ")
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			return fmt.Errorf("erro ao ler senha via terminal: %w", err)
+		}
+		fmt.Println()
+		pass = string(bytePassword)
+	} else {
+		log.Println("ℹ️ Credenciais carregadas via variáveis de ambiente.")
 	}
-	fmt.Println() // Newline after password input
-	pass := string(bytePassword)
 
 	// 🔎 Busca inputs
 	userInput, err := page.Element(config.SelectorUsernameInput)
@@ -81,37 +88,37 @@ func handleLoginData(page *rod.Page) error {
 	handleLocationIPModal(page)
 	handleDeviceValidationModal(page)
 
-	fmt.Println("✅ Login processado.")
+	log.Println("✅ Login processado.")
 	return nil
 }
 
 func handleLocationIPModal(page *rod.Page) {
-	fmt.Println("⏳ Verificando modal de localização...")
+	log.Println("⏳ Verificando modal de localização...")
 
 	xpath := `//p[contains(@class, 'link-text') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue using location via ip address')]`
-	el, err := page.Timeout(config.TimeoutModal).ElementX(xpath)
+	modalEl, err := page.Timeout(config.TimeoutModal).ElementX(xpath)
 	if err != nil {
-		fmt.Println("ℹ️ Modal de localização não apareceu.")
+		log.Println("ℹ️ Modal de localização não apareceu.")
 		return
 	}
 
-	fmt.Println("📍 Modal encontrado. Clicando...")
-	_ = el.Click(proto.InputMouseButtonLeft, 1)
+	log.Println("📍 Modal encontrado. Clicando...")
+	_ = modalEl.Click(proto.InputMouseButtonLeft, 1)
 
 	page.MustWaitLoad()
 }
 
 func handleDeviceValidationModal(page *rod.Page) {
-	fmt.Println("⏳ Verificando validação de novo dispositivo...")
+	log.Println("⏳ Verificando validação de novo dispositivo...")
 
 	xpath := `//div[contains(@class, 'mat-mdc-dialog-title') and contains(text(), 'New device detected')]`
 	_, err := page.Timeout(config.TimeoutModal).ElementX(xpath)
 	if err != nil {
-		fmt.Println("ℹ️ Modal de validação não apareceu.")
+		log.Println("ℹ️ Modal de validação não apareceu.")
 		return
 	}
 
-	fmt.Println("📱 Modal de validação encontrado.")
+	log.Println("📱 Modal de validação encontrado.")
 
 	var code string
 	fmt.Print("Digite o código enviado para seu e-mail: ")
@@ -119,7 +126,7 @@ func handleDeviceValidationModal(page *rod.Page) {
 
 	inputs, err := page.Elements(`code-input input`)
 	if err != nil || len(inputs) == 0 {
-		fmt.Println("⚠️ Inputs de código não encontrados.")
+		log.Println("⚠️ Inputs de código não encontrados.")
 		return
 	}
 
@@ -132,7 +139,7 @@ func handleDeviceValidationModal(page *rod.Page) {
 	loginBtn, err := page.Element(`mat-dialog-actions button.btn--color`)
 	if err == nil {
 		_ = loginBtn.Click(proto.InputMouseButtonLeft, 1)
-		fmt.Println("✅ Código enviado com sucesso.")
+		log.Println("✅ Código enviado com sucesso.")
 		page.MustWaitLoad()
 	}
 }
