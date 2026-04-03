@@ -2,6 +2,7 @@ package betting
 
 import (
 	"bolsadeaposta-bot/internal/config"
+	"bolsadeaposta-bot/internal/logger"
 	"fmt"
 	"log"
 	"strings"
@@ -79,6 +80,19 @@ func PrepareHandicapBet(page *rod.Page, teamName string, handicapLine string, am
 			return fmt.Errorf("erro ao confirmar aposta no boletim: %w", err)
 		}
 		log.Println("✅ Aposta confirmada com sucesso!")
+		
+		// Registrar aposta no log diário
+		oddValStr := "-"
+		text, _ := targetOdd.Text()
+		lines := strings.Split(text, "\n")
+		if len(lines) > 0 {
+			oddValStr = strings.TrimSpace(lines[len(lines)-1])
+		}
+		
+		if err := logger.LogBet(teamName, handicapLine, oddValStr, amount); err != nil {
+			log.Printf("⚠️ Erro ao salvar log da aposta: %v", err)
+		}
+
 	} else {
 		return fmt.Errorf("botão de confirmação não identificado no boletim")
 	}

@@ -2,9 +2,11 @@ package betting
 
 import (
 	"bolsadeaposta-bot/internal/config"
+	"bolsadeaposta-bot/internal/logger"
 	"bolsadeaposta-bot/internal/models"
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -167,15 +169,125 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 
 	_ = stakeInput.Input(amount)
 	
+	// Validar a linha e odd no bilhete antes de clicar em confirmar
+	time.Sleep(1 * time.Second) // Aguarda o bilhete atualizar para extrairmos os dados atualizados
+
+	var slipLine float64 = bestLine
+	var slipOdd float64 = bestOdd
+	var foundSlipInfo bool
+
+	removeBtn, err := frame.Element(config.SelectorBetslipRemoveBtn)
+	if err == nil {
+		parentContainer := removeBtn
+		for i := 0; i < 5; i++ {
+			if p, err := parentContainer.Parent(); err == nil && p != nil {
+				parentContainer = p
+			} else {
+				break
+			}
+		}
+
+		slipText, _ := parentContainer.Text()
+
+		lineEls, _ := parentContainer.Elements(`[class*='line'], [class*='Line'], [class*='Points'], [class*='points'], [class*='selectionName']`)
+		oddsEls, _ := parentContainer.Elements(`[class*='odds'], [class*='Odds']`)
+
+		var tempLine, tempOdd float64
+		reNum := regexp.MustCompile(`\d+(?:\.\d+)?`)
+
+		if len(lineEls) > 0 {
+			for _, el := range lineEls {
+				t, _ := el.Text()
+				m := reNum.FindString(t)
+				if m != "" {
+					if val, err := strconv.ParseFloat(m, 64); err == nil {
+						tempLine = val
+					}
+				}
+			}
+		}
+		if len(oddsEls) > 0 {
+			for _, el := range oddsEls {
+				t, _ := el.Text()
+				t = strings.ReplaceAll(strings.ReplaceAll(t, "▲", ""), "▼", "")
+				m := reNum.FindString(t)
+				if m != "" {
+					if val, err := strconv.ParseFloat(m, 64); err == nil {
+						tempOdd = val
+					}
+				}
+			}
+		}
+
+		if tempLine > 0 && tempOdd > 0 {
+			slipLine = tempLine
+			slipOdd = tempOdd
+			foundSlipInfo = true
+		} else {
+			matches := reNum.FindAllString(strings.ReplaceAll(strings.ReplaceAll(slipText, "▲", ""), "▼", ""), -1)
+			if len(matches) >= 2 {
+				var floats []float64
+				for _, m := range matches {
+					if v, err := strconv.ParseFloat(m, 64); err == nil {
+						floats = append(floats, v)
+					}
+				}
+				
+				for _, f := range floats {
+					if math.Abs(f-tipLineF) <= 5.0 && (math.Mod(f, 0.25) == 0 || math.Mod(f, 0.5) == 0) {
+						if slipLine == bestLine || math.Abs(f-tipLineF) < math.Abs(slipLine-tipLineF) {
+							slipLine = f
+						}
+					}
+					if math.Abs(f-tip.TargetOdd) <= 3.0 && f > 1.0 {
+						if slipOdd == bestOdd || math.Abs(f-tip.TargetOdd) < math.Abs(slipOdd-tip.TargetOdd) {
+							slipOdd = f
+						}
+					}
+				}
+				foundSlipInfo = true
+			}
+		}
+	}
+
+	if foundSlipInfo {
+		isValid := false
+		if tipIsOver {
+			// validez para Mais (linha menor ou igual, odd maior ou igual)
+			if slipLine <= tipLineF && slipOdd >= tip.TargetOdd {
+				isValid = true
+			}
+		} else if tipIsUnder {
+			// validez para Menos (linha maior ou igual, odd maior ou igual)
+			if slipLine >= tipLineF && slipOdd >= tip.TargetOdd {
+				isValid = true
+			}
+		}
+		
+		if !isValid {
+			log.Printf("⚠️ Aposta abortada na validação do bilhete! Linha bilhete: %.2f (Esperado <=/>= %.2f), Odd bilhete: %.2f (Esperado >= %.2f)", slipLine, tipLineF, slipOdd, tip.TargetOdd)
+			return fmt.Errorf("linha ou odd alterada inaceitavelmente no bilhete (Linha final: %.2f, Odd final: %.2f)", slipLine, slipOdd)
+		}
+		log.Printf("✅ Validação no bilhete concluída com sucesso: Linha %.2f, Odd %.2f", slipLine, slipOdd)
+	}
+
 	// Confirma
 	placeBtn, err := frame.Element(config.SelectorBetslipPlaceBetBtn)
 	if err == nil {
 		btnText, _ := placeBtn.Text()
-		log.Printf("🚀 Aposta preparada! Odd final: %.2f (Linha %.2f) | Clicando no botão: [%s]", bestOdd, bestLine, strings.TrimSpace(btnText))
+		log.Printf("🚀 Aposta preparada! Odd final: %.2f (Linha %.2f) | Clicando no botão: [%s]", slipOdd, slipLine, strings.TrimSpace(btnText))
 		if err := placeBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
 			return fmt.Errorf("erro ao confirmar aposta no boletim: %w", err)
 		}
 		log.Println("✅ Aposta confirmada com sucesso!")
+		
+		// Registrar aposta no log diário
+		match := fmt.Sprintf("%s x %s", tip.Team1, tip.Team2)
+		lineStr := fmt.Sprintf("%.2f", slipLine)
+		oddStr := fmt.Sprintf("%.2f", slipOdd)
+		if err := logger.LogBet(match, lineStr, oddStr, amount); err != nil {
+			log.Printf("⚠️ Erro ao salvar log da aposta: %v", err)
+		}
 	} else {
 		return fmt.Errorf("botão de confirmação não encontrado no boletim")
 	}
