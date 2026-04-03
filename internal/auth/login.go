@@ -5,13 +5,36 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"syscall"
+	"os"
+	"io"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 	"golang.org/x/term"
 )
+
+var (
+	// InputReader is used for terminal interaction. Can be mocked in tests.
+	InputReader io.Reader = os.Stdin
+	// ConsoleWriter is used for terminal logs.
+	ConsoleWriter io.Writer = os.Stdout
+)
+
+func readString() (string, error) {
+	var input string
+	_, err := fmt.Fscanln(InputReader, &input)
+	return input, err
+}
+
+func readPassword() (string, error) {
+	if f, ok := InputReader.(*os.File); ok {
+		bytePassword, err := term.ReadPassword(int(f.Fd()))
+		return string(bytePassword), err
+	}
+	// Fallback for non-file readers (like in tests)
+	return readString()
+}
 
 func LoginFlow(page *rod.Page) error {
 	log.Println("⏳ Verificando necessidade de login...")
@@ -43,16 +66,12 @@ func handleLoginData(page *rod.Page) error {
 	pass := config.BolsaPassword
 
 	if user == "" || pass == "" {
-		fmt.Print("Digite seu usuário: ")
-		fmt.Scanln(&user)
+		fmt.Fprint(ConsoleWriter, "Digite seu usuário: ")
+		user, _ = readString()
 
-		fmt.Print("Digite sua senha: ")
-		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			return fmt.Errorf("erro ao ler senha via terminal: %w", err)
-		}
-		fmt.Println()
-		pass = string(bytePassword)
+		fmt.Fprint(ConsoleWriter, "Digite sua senha: ")
+		pass, _ = readPassword()
+		fmt.Fprintln(ConsoleWriter)
 	} else {
 		log.Println("ℹ️ Credenciais carregadas via variáveis de ambiente.")
 	}
@@ -120,9 +139,8 @@ func handleDeviceValidationModal(page *rod.Page) {
 
 	log.Println("📱 Modal de validação encontrado.")
 
-	var code string
-	fmt.Print("Digite o código enviado para seu e-mail: ")
-	fmt.Scanln(&code)
+	fmt.Fprint(ConsoleWriter, "Digite o código enviado para seu e-mail: ")
+	code, _ := readString()
 
 	inputs, err := page.Elements(`code-input input`)
 	if err != nil || len(inputs) == 0 {

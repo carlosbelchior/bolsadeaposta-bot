@@ -71,18 +71,11 @@ func NavigateToMatch(browser *rod.Browser, player1, player2 string) (*rod.Page, 
 		extractedTeam1, _ := teams[0].Text()
 		extractedTeam2, _ := teams[1].Text()
 		
-		matchP1 := strings.Contains(strings.ToLower(extractedTeam1), strings.ToLower(player1))
-		matchP2 := strings.Contains(strings.ToLower(extractedTeam2), strings.ToLower(player2))
-
-		if !matchP1 || !matchP2 {
-			matchP1 = strings.Contains(strings.ToLower(extractedTeam1), strings.ToLower(player2))
-			matchP2 = strings.Contains(strings.ToLower(extractedTeam2), strings.ToLower(player1))
-		}
-
-		if matchP1 && matchP2 {
+		matched, t1, t2 := IsMatchTarget(extractedTeam1, extractedTeam2, player1, player2)
+		if matched {
 			targetMatch = event
-			team1Name = extractedTeam1
-			team2Name = extractedTeam2
+			team1Name = t1
+			team2Name = t2
 			break
 		}
 	}
@@ -92,7 +85,7 @@ func NavigateToMatch(browser *rod.Browser, player1, player2 string) (*rod.Page, 
 		return nil, fmt.Errorf("partida %s vs %s não encontrada ativamente", player1, player2)
 	}
 
-	log.Printf("🎯 Iniciando acompanhamento Multi-Aba: %s vs %s", team1Name, team2Name)
+	log.Printf("🎯 Instando acompanhamento Multi-Aba: %s vs %s", team1Name, team2Name)
 
 	teams, _ := targetMatch.Elements(`[class*="teamNameText"], [class*="participantName"]`)
 	clickTarget, err := teams[0].ElementX(`ancestor::div[contains(@class, "participant") or contains(@class, "Team")][1]`)
@@ -103,7 +96,7 @@ func NavigateToMatch(browser *rod.Browser, player1, player2 string) (*rod.Page, 
 	_ = clickTarget.ScrollIntoView()
 	_ = clickTarget.Click(proto.InputMouseButtonLeft, 1)
 
-	// Wait for the container of markets to load
+	// Aguarda o container de mercados carregar
 	_, _ = page.Timeout(10 * time.Second).Element(".eventdetails_eu_fe_ViewStyles_scrollContainer, .market_fe_MarketList_wrapper, .MarketList_wrapper")
 
 	time.Sleep(2 * time.Second) // additional buffer to let components render fully
@@ -120,8 +113,18 @@ func FetchLiveScore(page *rod.Page) (string, error) {
 	}
 	text, _ := scoreEl.Text()
 	
+	return ParseLiveScore(text), nil
+}
+
+// ParseLiveScore converts raw score text into a "S1-S2" format.
+func ParseLiveScore(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+
 	// Format could be "1\n2" or "1 - 2" or "1:2"
-	lines := strings.Split(strings.TrimSpace(text), "\n")
+	lines := strings.Split(text, "\n")
 	var validNumbers []string
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
@@ -131,17 +134,8 @@ func FetchLiveScore(page *rod.Page) (string, error) {
 	}
 
 	if len(validNumbers) >= 2 {
-		return fmt.Sprintf("%s-%s", validNumbers[0], validNumbers[1]), nil
+		return fmt.Sprintf("%s-%s", validNumbers[0], validNumbers[1])
 	}
-	
-	// FSSB specific fallback inside eventDetails header
-	p1ScoreEl, err1 := page.Element(`div[class*="Score"] span:nth-child(1)`)
-	p2ScoreEl, err2 := page.Element(`div[class*="Score"] span:nth-child(2)`)
-	if err1 == nil && err2 == nil {
-		s1, _ := p1ScoreEl.Text()
-		s2, _ := p2ScoreEl.Text()
-		return fmt.Sprintf("%s-%s", strings.TrimSpace(s1), strings.TrimSpace(s2)), nil
-	}
-	
-	return text, nil
+
+	return text
 }

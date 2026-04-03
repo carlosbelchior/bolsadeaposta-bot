@@ -133,20 +133,13 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 
 		teamOneName, _ := teams[0].Text()
 		teamTwoName, _ := teams[1].Text()
-		teamOneName = strings.TrimSpace(teamOneName)
-		teamTwoName = strings.TrimSpace(teamTwoName)
 
-		matchP1 := strings.Contains(strings.ToLower(teamOneName), strings.ToLower(player1))
-		matchP2 := strings.Contains(strings.ToLower(teamTwoName), strings.ToLower(player2))
-
-		if !matchP1 || !matchP2 {
-			matchP1 = strings.Contains(strings.ToLower(teamOneName), strings.ToLower(player2))
-			matchP2 = strings.Contains(strings.ToLower(teamTwoName), strings.ToLower(player1))
-		}
-
-		if !matchP1 || !matchP2 {
+		matched, t1, t2 := IsMatchTarget(teamOneName, teamTwoName, player1, player2)
+		if !matched {
 			continue
 		}
+		teamOneName = t1
+		teamTwoName = t2
 
 		key := teamOneName + "|" + teamTwoName
 		if seen[key] {
@@ -164,19 +157,19 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 		oddsEls, _ := event.Elements(`[class*="Selection_odds"], [class*="oddsText"]`)
 
 		match := models.Match{
-			Team1: teamOneName,
-			Team2: teamTwoName,
+			HomeTeam: teamOneName,
+			AwayTeam: teamTwoName,
 		}
 
 		if len(scores) >= 2 {
-			match.Score1, _ = scores[0].Text()
-			match.Score2, _ = scores[1].Text()
+			match.HomeScore, _ = scores[0].Text()
+			match.AwayScore, _ = scores[1].Text()
 		}
 
 		if len(oddsEls) >= 3 {
-			match.Odd1, _ = oddsEls[0].Text()
-			match.OddX, _ = oddsEls[1].Text()
-			match.Odd2, _ = oddsEls[2].Text()
+			match.HomeOdd, _ = oddsEls[0].Text()
+			match.DrawOdd, _ = oddsEls[1].Text()
+			match.AwayOdd, _ = oddsEls[2].Text()
 		}
 
 		timeText = strings.ReplaceAll(timeText, "\n", " ")
@@ -195,9 +188,7 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 		// Aguarda o container de mercados carregar
 		_, _ = event.Page().Timeout(5 * time.Second).Element(".eventdetails_eu_fe_ViewStyles_scrollContainer, .market_fe_MarketList_wrapper, .MarketList_wrapper")
 
-		match.HTHandicap1, match.HTHandicap2, _ = fetchHandicap(event.Page())
-
-		// Volta
+		// Volta para a lista de jogos
 		backBtn, err := event.Page().ElementX(config.SelectorBackBtn)
 		if err == nil {
 			_ = backBtn.Click(proto.InputMouseButtonLeft, 1)
@@ -210,69 +201,30 @@ func GetMatches(league *rod.Element, player1, player2 string) []models.Match {
 	return matches
 }
 
-func fetchHandicap(page *rod.Page) ([]models.HandicapLine, []models.HandicapLine, bool) {
-	var handicapLinesOne, handicapLinesTwo []models.HandicapLine
-	found := false
+// IsMatchTarget checks if the extracted team names match the expected player/team names.
+func IsMatchTarget(extractedTeam1, extractedTeam2, target1, target2 string) (bool, string, string) {
+	t1 := strings.ToLower(strings.TrimSpace(extractedTeam1))
+	t2 := strings.ToLower(strings.TrimSpace(extractedTeam2))
+	p1 := strings.ToLower(target1)
+	p2 := strings.ToLower(target2)
 
-	// Busca pelo mercado de Handicap
-	var marketContainer *rod.Element
-	for i := 0; i < 5; i++ {
-		el, err := page.ElementX(config.XPathHandicapMarket)
-		if err == nil {
-			marketContainer = el
-			break
-		}
-		// Tenta em iframes
-		iframes, _ := page.Elements("iframe")
-		for _, iframe := range iframes {
-			if f, err := iframe.Frame(); err == nil {
-				el, err = f.ElementX(config.XPathHandicapMarket)
-				if err == nil {
-					marketContainer = el
-					break
-				}
-			}
-		}
-		if marketContainer != nil {
-			break
-		}
-		time.Sleep(1 * time.Second)
+	match1 := strings.Contains(t1, p1) && strings.Contains(t2, p2)
+	if match1 {
+		return true, strings.TrimSpace(extractedTeam1), strings.TrimSpace(extractedTeam2)
 	}
-
-	if marketContainer != nil {
-		log.Println("✅ Mercado de Handicap encontrado.")
-		buttons, err := marketContainer.Elements(config.SelectorHandicapBtns)
-		if err == nil && len(buttons) >= 2 {
-			found = true
-			for i := 0; i < len(buttons); i += 2 {
-				if i+1 >= len(buttons) {
-					break
-				}
-
-				// Time 1
-				line1, _ := buttons[i].Element(config.SelectorHandicapPoints)
-				odd1, _ := buttons[i].Element(config.SelectorHandicapOdds)
-				if line1 != nil && odd1 != nil {
-					lineTextOne, _ := line1.Text()
-					oddTextOne, _ := odd1.Text()
-					oddTextOne = strings.ReplaceAll(oddTextOne, "▲", "")
-					oddTextOne = strings.ReplaceAll(oddTextOne, "▼", "")
-					handicapLinesOne = append(handicapLinesOne, models.HandicapLine{Line: strings.TrimSpace(lineTextOne), Odd: strings.TrimSpace(oddTextOne)})
-				}
-
-				// Time 2
-				line2, _ := buttons[i+1].Element(config.SelectorHandicapPoints)
-				odd2, _ := buttons[i+1].Element(config.SelectorHandicapOdds)
-				if line2 != nil && odd2 != nil {
-					lineTextTwo, _ := line2.Text()
-					oddTextTwo, _ := odd2.Text()
-					oddTextTwo = strings.ReplaceAll(oddTextTwo, "▲", "")
-					oddTextTwo = strings.ReplaceAll(oddTextTwo, "▼", "")
-					handicapLinesTwo = append(handicapLinesTwo, models.HandicapLine{Line: strings.TrimSpace(lineTextTwo), Odd: strings.TrimSpace(oddTextTwo)})
-				}
-			}
-		}
+	match2 := strings.Contains(t1, p2) && strings.Contains(t2, p1)
+	if match2 {
+		return true, strings.TrimSpace(extractedTeam1), strings.TrimSpace(extractedTeam2)
 	}
+	return false, "", ""
+}
 
-	return handicapLinesOne, handicapLinesTwo, found
+// IsScoreMatch compares the current live score with the target score from the tip.
+func IsScoreMatch(current, target string) bool {
+	if target == "" {
+		return true
+	}
+	c := strings.ReplaceAll(strings.ReplaceAll(current, " ", ""), "-", "")
+	t := strings.ReplaceAll(strings.ReplaceAll(target, " ", ""), "-", "")
+	return c == t
 }

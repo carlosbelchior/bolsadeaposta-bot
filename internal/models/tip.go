@@ -16,8 +16,8 @@ type Tip struct {
 	Line      string // e.g. "4.5"
 	TargetOdd float64 // e.g. 1.71
 	Score     string // e.g. "0-0"
-	Team1     string // e.g. "Habibi"
-	Team2     string // e.g. "Jose"
+	HomeTeam  string // e.g. "Habibi"
+	AwayTeam  string // e.g. "Jose"
 	Status    TipStatus
 	CreatedAt time.Time
 }
