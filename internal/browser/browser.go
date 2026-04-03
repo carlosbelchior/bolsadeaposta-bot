@@ -51,12 +51,31 @@ func StartBrowserAndAccessSportsbook() (*rod.Browser, *rod.Page, error) {
 	handleAgeModal(page)
 	wakeUpPage(page)
 	handleCookiesModal(page)
+	HandleRealityCheck(page)
 
 	if err := auth.LoginFlow(page); err != nil {
 		return nil, nil, fmt.Errorf("erro no fluxo de login: %w", err)
 	}
 
 	return browser, page, nil
+}
+
+// CheckAndDismissPopups can be called periodically to clear blocking modals
+func CheckAndDismissPopups(page *rod.Page) {
+	HandleRealityCheck(page)
+}
+
+func HandleRealityCheck(page *rod.Page) {
+	// O modal pode demorar um pouco para renderizar o botão ou estar em animação
+	btn, err := page.Timeout(1 * time.Second).Element(config.SelectorRealityCheckBtn)
+	if err == nil {
+		log.Println("🕒 Modal de Verificação de Realidade detectado. Clicando em 'Continuar jogando'...")
+		_ = btn.ScrollIntoView()
+		_ = btn.Click(proto.InputMouseButtonLeft, 1)
+		
+		// Aguarda sumir para não interferir em cliques subsequentes
+		_ = btn.WaitInvisible()
+	}
 }
 
 func wakeUpPage(page *rod.Page) {

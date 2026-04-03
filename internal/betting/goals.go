@@ -1,6 +1,7 @@
 package betting
 
 import (
+	"bolsadeaposta-bot/internal/browser"
 	"bolsadeaposta-bot/internal/config"
 	"bolsadeaposta-bot/internal/logger"
 	"bolsadeaposta-bot/internal/models"
@@ -82,6 +83,9 @@ func parseOddEl(oddEl *rod.Element, index int) (isOver, isUnder bool, line, odd 
 
 // PrepareGoalBet specifically looks for goals logic and validates the odd minimum
 func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
+	// Limpa popups na página principal antes de qualquer ação
+	browser.CheckAndDismissPopups(page)
+
 	sportsbookIframeElement, err := page.Element(config.SelectorIframeFSSB)
 	if err != nil {
 		return fmt.Errorf("iframe do sportsbook não encontrado")
@@ -270,6 +274,9 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 		}
 		log.Printf("✅ Validação no bilhete concluída com sucesso: Linha %.2f, Odd %.2f", slipLine, slipOdd)
 	}
+
+	// Nova verificação de popups antes de tentar clicar no botão final
+	browser.CheckAndDismissPopups(page)
 
 	// Confirma
 	placeBtn, err := frame.Element(config.SelectorBetslipPlaceBetBtn)
