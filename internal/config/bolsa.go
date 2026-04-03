@@ -57,6 +57,7 @@ const (
 	SelectorBetslipRemoveBtn  = "button.betslip_fe_BetInformationSecondary_betInformation__removeButton"
 	SelectorBetslipTab        = "div.navigation_eu_fe_Breadcrumbs_betslipTab"
 	SelectorAHButton          = "button.eventpage_fe_HandicapSelection_line"
+	SelectorRealityCheckBtn   = "app-reality-check-dialog button.btn--color--transparent"
 	
 	// XPaths
 	XPathLeagueGT        = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'gt leagues')]`
