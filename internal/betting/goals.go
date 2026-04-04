@@ -17,7 +17,31 @@ import (
 	"github.com/go-rod/rod/lib/proto"
 )
 
-// Helper function to extract info from an odd button
+// ParseOddString extracts line and odd values from a text string using regex and split logic.
+func ParseOddString(text string) (line, odd float64, ok bool) {
+	lines := strings.Split(text, "\n")
+	var numbers []float64
+	re := regexp.MustCompile(`\d+(?:\.\d+)?`)
+	for _, l := range lines {
+		l = strings.ReplaceAll(strings.ReplaceAll(l, "▲", ""), "▼", "")
+		matches := re.FindAllString(l, -1)
+		for _, m := range matches {
+			if val, err := strconv.ParseFloat(m, 64); err == nil {
+				numbers = append(numbers, val)
+			}
+		}
+	}
+
+	if len(numbers) >= 2 {
+		line = numbers[0]
+		odd = numbers[len(numbers)-1]
+		ok = true
+		return
+	}
+	return
+}
+
+// parseOddEl uses ParseOddString and element-specific logic to extract betting info.
 func parseOddEl(oddEl *rod.Element, index int) (isOver, isUnder bool, line, odd float64, ok bool) {
 	text, _ := oddEl.Text()
 	lower := strings.ToLower(text)
@@ -51,52 +75,41 @@ func parseOddEl(oddEl *rod.Element, index int) (isOver, isUnder bool, line, odd 
 		}
 	}
 
-	lines := strings.Split(text, "\n")
-	var numbers []float64
-	re := regexp.MustCompile(`\d+(?:\.\d+)?`)
-	for _, l := range lines {
-		l = strings.ReplaceAll(strings.ReplaceAll(l, "▲", ""), "▼", "")
-		matches := re.FindAllString(l, -1)
-		for _, m := range matches {
-			if val, err := strconv.ParseFloat(m, 64); err == nil {
-				numbers = append(numbers, val)
-			}
-		}
-	}
-
-	if len(numbers) >= 2 {
-		line = numbers[0]
-		odd = numbers[len(numbers)-1]
-		ok = true
-	} else if len(numbers) == 1 {
-		// Possibly text format "4.5 1.80"
-		reCombo := regexp.MustCompile(`(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)`)
-		matches := reCombo.FindStringSubmatch(text)
-		if len(matches) == 3 {
-			line, _ = strconv.ParseFloat(matches[1], 64)
-			odd, _ = strconv.ParseFloat(matches[2], 64)
-			ok = true
-		}
-	}
+	line, odd, ok = ParseOddString(text)
 	return
 }
 
-// PrepareGoalBet specifically looks for goals logic and validates the odd minimum
+// ValidateBet checks if the slip line and odd are acceptable for a given tip.
+func ValidateBet(tip *models.Tip, slipLine, slipOdd float64) (bool, string) {
+	tipIsOver := strings.Contains(strings.ToLower(tip.Market), "mais") || strings.Contains(strings.ToLower(tip.Market), "over")
+	tipIsUnder := strings.Contains(strings.ToLower(tip.Market), "menos") || strings.Contains(strings.ToLower(tip.Market), "under")
+	tipLineF, _ := strconv.ParseFloat(tip.Line, 64)
+
+	if tipIsOver {
+		// for "Mais de", market line must be <= bot line (safer for us)
+		if slipLine <= tipLineF && slipOdd >= tip.TargetOdd {
+			return true, ""
+		}
+		return false, fmt.Sprintf("Aposta Over: Linha bilhete %.2f (Esperado <= %.2f), Odd bilhete %.2f (Esperado >= %.2f)", slipLine, tipLineF, slipOdd, tip.TargetOdd)
+	} else if tipIsUnder {
+		// for "Menos de", market line must be >= bot line (safer for us)
+		if slipLine >= tipLineF && slipOdd >= tip.TargetOdd {
+			return true, ""
+		}
+		return false, fmt.Sprintf("Aposta Under: Linha bilhete %.2f (Esperado >= %.2f), Odd bilhete %.2f (Esperado >= %.2f)", slipLine, tipLineF, slipOdd, tip.TargetOdd)
+	}
+	return false, "Tipo de mercado não identificado (Over/Under)"
+}
+
+// PrepareGoalBet especificamente busca a lógica de gols e valida a odd mínima
 func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 	// Limpa popups na página principal antes de qualquer ação
 	browser.CheckAndDismissPopups(page)
 
-	sportsbookIframeElement, err := page.Element(config.SelectorIframeFSSB)
+	frame, err := GetBetslipFrame(page)
 	if err != nil {
-		return fmt.Errorf("iframe do sportsbook não encontrado")
+		return err
 	}
-
-	frame, err := sportsbookIframeElement.Frame()
-	if err != nil {
-		return fmt.Errorf("erro frame")
-	}
-
-	_ = ClearBetslip(frame)
 
 	// Busca pelo mercado de Aposta Ao Vivo Mais/Menos
 	var marketContainer *rod.Element
@@ -122,7 +135,7 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 	tipIsUnder := strings.Contains(strings.ToLower(tip.Market), "menos") || strings.Contains(strings.ToLower(tip.Market), "under")
 	tipLineF, _ := strconv.ParseFloat(tip.Line, 64)
 
-	var targetOddElement *rod.Element
+	var targetSelection *rod.Element
 	var bestLine float64
 	var bestOdd float64
 	var foundValidButton bool
@@ -134,24 +147,20 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 		}
 
 		if tipIsOver && isOver {
-			// for "Mais de", market line must be <= bot line (safer for us)
 			if lineVal <= tipLineF && oddVal >= tip.TargetOdd {
-				// We want the most advantageous line. For "Mais de", smaller line is better.
 				if !foundValidButton || lineVal < bestLine {
 					bestLine = lineVal
 					bestOdd = oddVal
-					targetOddElement = oddEl
+					targetSelection = oddEl
 					foundValidButton = true
 				}
 			}
 		} else if tipIsUnder && isUnder {
-			// for "Menos de", market line must be >= bot line (safer for us)
 			if lineVal >= tipLineF && oddVal >= tip.TargetOdd {
-				// For "Menos de", larger line is better.
 				if !foundValidButton || lineVal > bestLine {
 					bestLine = lineVal
 					bestOdd = oddVal
-					targetOddElement = oddEl
+					targetSelection = oddEl
 					foundValidButton = true
 				}
 			}
@@ -159,22 +168,16 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 	}
 
 	if !foundValidButton {
-		return fmt.Errorf("nenhuma linha válida encontrada que atenda aos critérios (tipo over=%v, linha bot: %.2f, odd mínima: %.2f)", tipIsOver, tipLineF, tip.TargetOdd)
+		return fmt.Errorf("nenhuma linha válida encontrada (over=%v, linha bot: %.2f, odd min: %.2f)", tipIsOver, tipLineF, tip.TargetOdd)
 	}
 
-	_ = targetOddElement.ScrollIntoView()
-	time.Sleep(500 * time.Millisecond)
-	_ = targetOddElement.Click(proto.InputMouseButtonLeft, 1)
-
-	stakeInput, err := frame.Timeout(5 * time.Second).Element(config.SelectorBetslipStakeInput)
-	if err != nil {
-		return fmt.Errorf("campo de stake ausente")
+	// Realiza o fluxo do bilhete
+	if err := PerformBetslipFlow(frame, targetSelection, amount); err != nil {
+		return err
 	}
 
-	_ = stakeInput.Input(amount)
-	
 	// Validar a linha e odd no bilhete antes de clicar em confirmar
-	time.Sleep(1 * time.Second) // Aguarda o bilhete atualizar para extrairmos os dados atualizados
+	time.Sleep(1 * time.Second)
 
 	var slipLine float64 = bestLine
 	var slipOdd float64 = bestOdd
@@ -192,7 +195,6 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 		}
 
 		slipText, _ := parentContainer.Text()
-
 		lineEls, _ := parentContainer.Elements(`[class*='line'], [class*='Line'], [class*='Points'], [class*='points'], [class*='selectionName']`)
 		oddsEls, _ := parentContainer.Elements(`[class*='odds'], [class*='Odds']`)
 
@@ -236,7 +238,6 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 						floats = append(floats, v)
 					}
 				}
-				
 				for _, f := range floats {
 					if math.Abs(f-tipLineF) <= 5.0 && (math.Mod(f, 0.25) == 0 || math.Mod(f, 0.5) == 0) {
 						if slipLine == bestLine || math.Abs(f-tipLineF) < math.Abs(slipLine-tipLineF) {
@@ -255,48 +256,34 @@ func PrepareGoalBet(page *rod.Page, tip *models.Tip, amount string) error {
 	}
 
 	if foundSlipInfo {
-		isValid := false
-		if tipIsOver {
-			// validez para Mais (linha menor ou igual, odd maior ou igual)
-			if slipLine <= tipLineF && slipOdd >= tip.TargetOdd {
-				isValid = true
-			}
-		} else if tipIsUnder {
-			// validez para Menos (linha maior ou igual, odd maior ou igual)
-			if slipLine >= tipLineF && slipOdd >= tip.TargetOdd {
-				isValid = true
-			}
+		ok, msg := ValidateBet(tip, slipLine, slipOdd)
+		if !ok {
+			log.Printf("⚠️ Aposta abortada na validação do bilhete: %s", msg)
+			return fmt.Errorf("validação falhou: %s", msg)
 		}
-		
-		if !isValid {
-			log.Printf("⚠️ Aposta abortada na validação do bilhete! Linha bilhete: %.2f (Esperado <=/>= %.2f), Odd bilhete: %.2f (Esperado >= %.2f)", slipLine, tipLineF, slipOdd, tip.TargetOdd)
-			return fmt.Errorf("linha ou odd alterada inaceitavelmente no bilhete (Linha final: %.2f, Odd final: %.2f)", slipLine, slipOdd)
-		}
-		log.Printf("✅ Validação no bilhete concluída com sucesso: Linha %.2f, Odd %.2f", slipLine, slipOdd)
+		log.Printf("✅ Validação bilhete: Linha %.2f, Odd %.2f", slipLine, slipOdd)
 	}
 
-	// Nova verificação de popups antes de tentar clicar no botão final
+	// Nova verificação de popups antes do clique final
 	browser.CheckAndDismissPopups(page)
 
-	// Confirma
 	placeBtn, err := frame.Element(config.SelectorBetslipPlaceBetBtn)
-	if err == nil {
-		btnText, _ := placeBtn.Text()
-		log.Printf("🚀 Aposta preparada! Odd final: %.2f (Linha %.2f) | Clicando no botão: [%s]", slipOdd, slipLine, strings.TrimSpace(btnText))
-		if err := placeBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
-			return fmt.Errorf("erro ao confirmar aposta no boletim: %w", err)
-		}
-		log.Println("✅ Aposta confirmada com sucesso!")
-		
-		// Registrar aposta no log diário
-		match := fmt.Sprintf("%s x %s", tip.Team1, tip.Team2)
-		lineStr := fmt.Sprintf("%.2f", slipLine)
-		oddStr := fmt.Sprintf("%.2f", slipOdd)
-		if err := logger.LogBet(match, lineStr, oddStr, amount); err != nil {
-			log.Printf("⚠️ Erro ao salvar log da aposta: %v", err)
-		}
-	} else {
-		return fmt.Errorf("botão de confirmação não encontrado no boletim")
+	if err != nil {
+		return fmt.Errorf("botão de confirmação não encontrado no bilhete")
+	}
+
+	btnText, _ := placeBtn.Text()
+	log.Printf("🚀 Aposta preparada! Odd: %.2f (Linha %.2f) | Clicando: [%s]", slipOdd, slipLine, strings.TrimSpace(btnText))
+	if err := placeBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
+		return fmt.Errorf("erro ao confirmar aposta no bilhete: %w", err)
+	}
+
+	log.Println("✅ Aposta confirmada com sucesso!")
+
+	// Registra log
+	matchName := fmt.Sprintf("%s x %s", tip.HomeTeam, tip.AwayTeam)
+	if err := logger.LogBet(matchName, fmt.Sprintf("%.2f", slipLine), fmt.Sprintf("%.2f", slipOdd), amount); err != nil {
+		log.Printf("⚠️ Erro ao salvar log: %v", err)
 	}
 
 	return nil

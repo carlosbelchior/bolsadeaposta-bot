@@ -63,10 +63,10 @@ func ParseTipMessage(messageText string) (*models.Tip, error) {
 	// 4. Extrair Times
 	teamsMatch := teamsRegex.FindStringSubmatch(messageText)
 	if len(teamsMatch) >= 3 {
-		tip.Team1 = strings.TrimSpace(teamsMatch[1])
-		tip.Team2 = strings.TrimSpace(teamsMatch[2])
+		tip.HomeTeam = strings.TrimSpace(teamsMatch[1])
+		tip.AwayTeam = strings.TrimSpace(teamsMatch[2])
 	} else {
-		return nil, fmt.Errorf("não foi possível extrair os nomes dos jogadores")
+		return nil, fmt.Errorf("não foi possível extrair os nomes dos times da mensagem")
 	}
 
 	return tip, nil
