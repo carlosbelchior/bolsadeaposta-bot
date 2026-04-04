@@ -1,39 +1,45 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
 
 var (
-	TargetLeagueName   = "gt leagues"
-	TargetIframeDomain = "fssb.io"
-	BolsaUsername      = ""
-	BolsaPassword      = ""
-	StakeAmount        int
+	// Bolsa Settings
+	BolsaUsername      string
+	BolsaPassword      string
+	BetAmount          int
+	TargetLeagueName   string
+	TargetIframeDomain string
 )
 
-func loadBolsaConfig() {
-	if val := os.Getenv("TARGET_LEAGUE_NAME"); val != "" {
-		TargetLeagueName = val
-	}
-	if val := os.Getenv("TARGET_IFRAME_DOMAIN"); val != "" {
-		TargetIframeDomain = val
-	}
+func loadBolsaConfig() error {
 	BolsaUsername = os.Getenv("BOLSA_USERNAME")
 	BolsaPassword = os.Getenv("BOLSA_PASSWORD")
+	TargetLeagueName = os.Getenv("TARGET_LEAGUE_NAME")
+	if TargetLeagueName == "" {
+		TargetLeagueName = "GT Leagues"
+	}
 
-	val := os.Getenv("BET_AMOUNT")
-	if val == "" {
-		log.Fatalf("Erro: BET_AMOUNT é obrigatório no arquivo .env")
+	TargetIframeDomain = os.Getenv("TARGET_IFRAME_DOMAIN")
+	if TargetIframeDomain == "" {
+		TargetIframeDomain = "fssb.io"
 	}
-	amt, err := strconv.Atoi(val)
+
+	amountStr := os.Getenv("BET_AMOUNT")
+	if amountStr == "" {
+		return fmt.Errorf("BET_AMOUNT não configurado")
+	}
+	amount, err := strconv.Atoi(amountStr)
 	if err != nil {
-		log.Fatalf("Erro: BET_AMOUNT no .env deve ser um valor inteiro, recebido: %s", val)
+		return fmt.Errorf("BET_AMOUNT inválido: %w", err)
 	}
-	StakeAmount = amt
+	BetAmount = amount
+
+	return nil
 }
 
 const (
@@ -55,7 +61,6 @@ const (
 	SelectorBetslipStakeInput = "input#counter"
 	SelectorBetslipPlaceBetBtn = "button#place-bets"
 	SelectorBetslipRemoveBtn  = "button.betslip_fe_BetInformationSecondary_betInformation__removeButton"
-	SelectorBetslipTab        = "div.navigation_eu_fe_Breadcrumbs_betslipTab"
 	SelectorAHButton          = "button.eventpage_fe_HandicapSelection_line"
 	SelectorRealityCheckBtn   = "app-reality-check-dialog button.btn--color--transparent"
 	
@@ -63,8 +68,9 @@ const (
 	XPathLeagueGT        = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'gt leagues')]`
 	XPathHandicapMarket  = `//*[contains(@class, "MarketHeader_marketName") or contains(@class, "eventpage_fe_Markets_marketName") or contains(@class, "MarketName") or contains(@class, "header")][contains(text(), "Asian") or contains(text(), "Asiático")]/ancestor::div[contains(@class, "MarketGroup_wrapper") or contains(@class, "MarketGroup") or contains(@class, "marketsList_marketGroup")]`
 	XPathGoalMarket      = `//*[contains(@class, "MarketHeader_marketName") or contains(@class, "eventpage_fe_Markets_marketName") or contains(@class, "MarketName") or contains(@class, "header")][contains(text(), "Aposta Ao Vivo Mais/Menos") or contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "mais/menos")]/ancestor::div[contains(@class, "MarketGroup_wrapper") or contains(@class, "MarketGroup") or contains(@class, "marketsList_marketGroup")]`
-	
-	// Timeouts and Delays
+)
+
+var (
 	TimeoutModal    = 10 * time.Second
 	TimeoutSearch   = 30 * time.Second
 	DelayAction     = 1 * time.Second

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestParseTipMessage(t *testing.T) {
+func TestParseTipMessage_Success(t *testing.T) {
 	msg := `📈Mais de 4.5 - Gols @1.71
 
 🔴Ao vivo
@@ -23,27 +23,58 @@ func TestParseTipMessage(t *testing.T) {
 		t.Fatalf("Erro inesperado: %v", err)
 	}
 
-	if tip.TargetOdd != 1.71 {
-		t.Errorf("TargetOdd incorreta: got %v, want %v", tip.TargetOdd, 1.71)
+	assertEquals(t, "TargetOdd", tip.TargetOdd, 1.71)
+	assertEquals(t, "Market", tip.Market, "Mais de 4.5 - Gols")
+	assertEquals(t, "Line", tip.Line, "4.5")
+	assertEquals(t, "Score", tip.Score, "0-0")
+	assertEquals(t, "HomeTeam", tip.HomeTeam, "Habibi")
+	assertEquals(t, "AwayTeam", tip.AwayTeam, "Jose")
+}
+
+func TestParseTipMessage_Under(t *testing.T) {
+	msg := `📈Menos de 2.5 - Gols @1.90
+🏃Team A (L) vs Team B (R)
+`
+	tip, err := ParseTipMessage(msg)
+	if err != nil {
+		t.Fatalf("Erro inesperado: %v", err)
 	}
 
-	if tip.Market != "Mais de 4.5 - Gols" {
-		t.Errorf("Market incorreto: got %v, want %v", tip.Market, "Mais de 4.5 - Gols")
-	}
+	assertEquals(t, "Line", tip.Line, "2.5")
+	assertEquals(t, "Market", tip.Market, "Menos de 2.5 - Gols")
+}
 
-	if tip.Line != "4.5" {
-		t.Errorf("Line incorreto: got %v, want %v", tip.Line, "4.5")
+func TestParseTipMessage_NoEmoji(t *testing.T) {
+	msg := `Mais de 4.5 - Gols @1.71`
+	_, err := ParseTipMessage(msg)
+	if err == nil {
+		t.Error("Deveria ter retornado erro por falta de emoji 📈")
 	}
+}
 
-	if tip.Score != "0-0" {
-		t.Errorf("Score incorreto: got %v, want %v", tip.Score, "0-0")
+func TestParseTipMessage_MissingTeams(t *testing.T) {
+	msg := `📈Mais de 4.5 - Gols @1.71
+Score: 0-0
+`
+	_, err := ParseTipMessage(msg)
+	if err == nil {
+		t.Error("Deveria ter retornado erro por falta dos times 🏃")
 	}
+}
 
-	if tip.Team1 != "Habibi" {
-		t.Errorf("Team1 incorreto: got %v, want %v", tip.Team1, "Habibi")
+func TestParseTipMessage_InvalidOdd(t *testing.T) {
+	msg := `📈Mais de 4.5 - Gols @abc
+🏃Habibi (S) vs Jose (G)
+`
+	_, err := ParseTipMessage(msg)
+	if err == nil {
+		t.Error("Deveria ter retornado erro por odd inválida")
 	}
+}
 
-	if tip.Team2 != "Jose" {
-		t.Errorf("Team2 incorreto: got %v, want %v", tip.Team2, "Jose")
+func assertEquals(t *testing.T, field string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s incorreto: got %v, want %v", field, got, want)
 	}
 }

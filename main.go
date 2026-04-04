@@ -14,7 +14,9 @@ import (
 )
 
 func main() {
-	config.Load()
+	if err := config.Load(); err != nil {
+		log.Fatalf("❌ Erro ao carregar configurações: %v", err)
+	}
 
 	browserInstance, _, err := browser.StartBrowserAndAccessSportsbook()
 	if err != nil {

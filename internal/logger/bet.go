@@ -7,10 +7,15 @@ import (
 	"time"
 )
 
+var (
+	// LogFolder defines where the log files will be stored.
+	LogFolder = "logs"
+)
+
 // LogBet salva o registro de uma aposta realizada no arquivo de log do dia.
 // Formato: data;jogador1 x jogador2;linha;odd;valor
 func LogBet(match, line, odd, amount string) error {
-	folder := "logs"
+	folder := LogFolder
 	if err := os.MkdirAll(folder, 0755); err != nil {
 		return fmt.Errorf("erro ao criar pasta de logs: %w", err)
 	}
